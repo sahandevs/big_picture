@@ -103,7 +103,29 @@ class _MyHomePageState extends State<MyHomePage> {
     return SizedBox(
       width: 3000,
       height: 3000,
-      child: Text("hi"),
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          Placeholder(),
+          builtBPItem(buildItem(), x: 100, y: 100)
+        ],
+      ),
+    );
+  }
+
+  Widget buildItem() {
+    return SizedBox(
+      width: 350,
+      height: 130,
+      child: Card(),
+    );
+  }
+
+  Widget builtBPItem(Widget child, {double x, double y}) {
+    return Positioned(
+      child: child,
+      left: x,
+      top: y,
     );
   }
 }
