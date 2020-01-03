@@ -14,15 +14,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.blue,
       ),
       home: MyHomePage(title: 'Flutter Demo Home Page'),
@@ -32,16 +23,6 @@ class MyApp extends StatelessWidget {
 
 class MyHomePage extends StatefulWidget {
   MyHomePage({Key key, this.title}) : super(key: key);
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
   final String title;
 
   @override
@@ -122,10 +103,69 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Widget builtBPItem(Widget child, {double x, double y}) {
-    return Positioned(
+    return BPItem(
       child: child,
-      left: x,
-      top: y,
+      position: Offset(x, y),
+    );
+  }
+}
+
+class BPItem extends StatefulWidget {
+  final Widget child;
+  final Offset position;
+
+  const BPItem({Key key, this.position, this.child}) : super(key: key);
+
+  @override
+  _BPItemState createState() => _BPItemState();
+}
+
+class _BPItemState extends State<BPItem> {
+  ValueNotifier<bool> isHovering = ValueNotifier(false);
+  ValueNotifier<bool> isHoveringOverDragIcon = ValueNotifier(false);
+  Offset _offset = Offset.zero;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      child: MouseRegion(
+        onEnter: (_) => isHovering.value = true,
+        onExit: (_) => isHovering.value = false,
+        child: Stack(
+          fit: StackFit.loose,
+          children: <Widget>[
+            widget.child,
+            Positioned(
+              right: 10,
+              top: 10,
+              child: MouseRegion(
+                onEnter: (_) => isHoveringOverDragIcon.value = true,
+                onExit: (_) => isHoveringOverDragIcon.value = false,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanUpdate: (d) {
+                    print("test");
+
+                    setState(() {
+                      _offset += d.delta;
+                    });
+                  },
+                  child: ValueListenableBuilder(
+                    valueListenable: isHovering,
+                    builder: (c, isHovering, _) => AnimatedOpacity(
+                      duration: Duration(milliseconds: 100),
+                      opacity: isHovering ? 0.8 : 0.0,
+                      child: Icon(Icons.drag_handle),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          ],
+        ),
+      ),
+      left: widget.position.dx + _offset.dx,
+      top: widget.position.dy + _offset.dy,
     );
   }
 }
