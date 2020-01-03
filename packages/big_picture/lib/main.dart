@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 void main() {
-  debugDefaultTargetPlatformOverride = TargetPlatform.android;
+  debugDefaultTargetPlatformOverride = TargetPlatform.fuchsia;
   runApp(MyApp());
 }
 
@@ -48,26 +49,61 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  bool isHovering = false;
+  bool isHoldingControl = false;
+  Offset _translate = Offset.zero;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: <Widget>[
+        appBar: AppBar(
+          title: Text(widget.title),
+        ),
+        body: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
             Positioned(
-              left: -100,
-              child: SizedBox(
-                width: 3000,
-                height: 3000,
-                child: Text("hi"),
+              left: _translate.dx,
+              top: _translate.dy,
+              child: Focus(
+                onKey: (_, k) {
+                  final RawKeyEventDataAndroid _data = k.data;
+                  if (_data.keyCode == 17) {
+                    setState(() {
+                      if (k is RawKeyUpEvent) {
+                        isHoldingControl = false;
+                      } else {
+                        isHoldingControl = true;
+                      }
+                    });
+                  }
+                  return false;
+                },
+                autofocus: true,
+                canRequestFocus: true,
+                onFocusChange: (isFocused) => print("is focused $isFocused"),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanUpdate: (d) {
+                    if (isHoldingControl) {
+                      setState(() {
+                        _translate += d.delta;
+                      });
+                    }
+                  },
+                  child: buildContent(),
+                ),
               ),
             )
-        ],
-      )
+          ],
+        ));
+  }
+
+  Widget buildContent() {
+    return SizedBox(
+      width: 3000,
+      height: 3000,
+      child: Text("hi"),
     );
   }
 }
