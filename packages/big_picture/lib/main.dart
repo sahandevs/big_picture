@@ -151,10 +151,31 @@ class _MyHomePageState extends State<MyHomePage> {
         fit: StackFit.expand,
         children: <Widget>[
           Placeholder(),
+          buildPointer(
+            fromPosition: Offset(10, 50),
+            fromSize: Size(350, 130),
+            toPosition: Offset(300, 300),
+            toSize: Size(350, 130),
+          ),
           ...onBoardItems
               .map((x) => BPItem(child: buildItem(x), position: x.position))
               .toList(),
         ],
+      ),
+    );
+  }
+
+  Widget buildPointer(
+      {Offset fromPosition, Size fromSize, Offset toPosition, Size toSize}) {
+    return Positioned(
+      top: fromPosition.dy + fromSize.height,
+      left: fromPosition.dx + fromSize.width / 2,
+      height: toPosition.dy - fromPosition.dy,
+      width: toPosition.dx - fromPosition.dx,
+      child: Container(
+        child: CustomPaint(
+          painter: ArrowPainter(),
+        ),
       ),
     );
   }
@@ -167,6 +188,36 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Text(item.title),
       ),
     );
+  }
+}
+
+class ArrowPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final _paint = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    final center = Offset(size.width / 2, size.height / 2);
+
+    final _path = Path();
+    _path.moveTo(size.width, 0);
+    _path.quadraticBezierTo(
+        center.dx + 150, center.dy - 50, center.dx, center.dy);
+    _path.quadraticBezierTo(center.dx - 150, center.dy + 50, 0, size.height);
+    canvas.drawPath(_path, _paint);
+
+    final _arrowHeadPath = Path();
+    _arrowHeadPath.moveTo(-5, size.height - 5);
+    _arrowHeadPath.lineTo(0, size.height);
+    _arrowHeadPath.lineTo(5, size.height - 5);
+    canvas.drawPath(_arrowHeadPath, _paint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) {
+    return true;
   }
 }
 
