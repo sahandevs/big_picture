@@ -13,6 +13,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -29,16 +30,78 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
+class Item {
+  Item(this.title);
+
+  Offset position = Offset.zero;
+  String title;
+
+  static List<Item> generate() {
+    return [
+      Item("Item #1"),
+      Item("Item #2"),
+      Item("Item #3"),
+      Item("Item #4"),
+      Item("Item #5"),
+      Item("Item #6"),
+      Item("Item #7"),
+      Item("Item #8"),
+      Item("Item #9"),
+      Item("Item #10"),
+    ];
+  }
+}
+
 class _MyHomePageState extends State<MyHomePage> {
   bool isHovering = false;
   bool isHoldingControl = false;
   Offset _translate = Offset.zero;
 
+  List<Item> onBoardItems = [];
+  List<Item> idleItems = Item.generate();
+
+  initState() {
+    super.initState();
+    addItemToBoard(idleItems.first);
+  }
+
+  addItemToBoard(Item target) {
+    idleItems.remove(target);
+    onBoardItems.add(target);
+  }
+
+  Widget buildDrawerItem(Item item) {
+    return GestureDetector(
+      onTap: () => setState(() => addItemToBoard(item)),
+      child: Container(
+        padding: EdgeInsets.all(5),
+        width: double.infinity,
+        height: 100,
+        child: Card(
+          child: Text(item.title),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+        endDrawer: Drawer(
+          child: ListView.builder(
+            itemBuilder: (context, index) => buildDrawerItem(idleItems[index]),
+            itemCount: idleItems.length,
+          ),
+        ),
         appBar: AppBar(
-          title: Text(widget.title),
+          actions: <Widget>[
+            Builder(
+              builder: (context) => IconButton(
+                icon: Icon(Icons.menu),
+                onPressed: () => Scaffold.of(context).openEndDrawer(),
+              ),
+            )
+          ],
         ),
         body: Stack(
           fit: StackFit.expand,
@@ -88,24 +151,21 @@ class _MyHomePageState extends State<MyHomePage> {
         fit: StackFit.expand,
         children: <Widget>[
           Placeholder(),
-          builtBPItem(buildItem(), x: 100, y: 100)
+          ...onBoardItems
+              .map((x) => BPItem(child: buildItem(x), position: x.position))
+              .toList(),
         ],
       ),
     );
   }
 
-  Widget buildItem() {
+  Widget buildItem(Item item) {
     return SizedBox(
       width: 350,
       height: 130,
-      child: Card(),
-    );
-  }
-
-  Widget builtBPItem(Widget child, {double x, double y}) {
-    return BPItem(
-      child: child,
-      position: Offset(x, y),
+      child: Card(
+        child: Text(item.title),
+      ),
     );
   }
 }
@@ -144,8 +204,6 @@ class _BPItemState extends State<BPItem> {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onPanUpdate: (d) {
-                    print("test");
-
                     setState(() {
                       _offset += d.delta;
                     });
