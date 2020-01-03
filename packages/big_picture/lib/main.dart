@@ -35,6 +35,7 @@ class Item {
 
   Offset position = Offset.zero;
   String title;
+  List<Item> parents = [];
 
   static List<Item> generate() {
     return [
@@ -52,6 +53,25 @@ class Item {
   }
 }
 
+class RelationPosition {
+  final Offset fromPosition;
+  final Size fromSize;
+  final Offset toPosition;
+  final Size toSize;
+
+  RelationPosition({
+    this.fromPosition,
+    this.fromSize,
+    this.toPosition,
+    this.toSize,
+  });
+
+  @override
+  String toString() {
+    return 'RelationPosition{fromPosition: $fromPosition, fromSize: $fromSize, toPosition: $toPosition, toSize: $toSize}';
+  }
+}
+
 class _MyHomePageState extends State<MyHomePage> {
   bool isHovering = false;
   bool isHoldingControl = false;
@@ -60,8 +80,11 @@ class _MyHomePageState extends State<MyHomePage> {
   List<Item> onBoardItems = [];
   List<Item> idleItems = Item.generate();
 
+  ValueNotifier<Item> selectedItem = ValueNotifier(null);
+
   initState() {
     super.initState();
+    addItemToBoard(idleItems.first);
     addItemToBoard(idleItems.first);
   }
 
@@ -151,67 +174,189 @@ class _MyHomePageState extends State<MyHomePage> {
         fit: StackFit.expand,
         children: <Widget>[
           Placeholder(),
-          buildPointer(
-            fromPosition: Offset(10, 50),
-            fromSize: Size(350, 130),
-            toPosition: Offset(300, 300),
-            toSize: Size(350, 130),
-          ),
+          ..._relationPositions
+              .map((relation) => buildPointer(relation))
+              .toList(),
           ...onBoardItems
-              .map((x) => BPItem(child: buildItem(x), position: x.position))
+              .map((x) => BPItem(
+                    child: buildItem(x),
+                    item: x,
+                    onPositionChanged: () => updatePaths(),
+                  ))
               .toList(),
         ],
       ),
     );
   }
 
-  Widget buildPointer(
-      {Offset fromPosition, Size fromSize, Offset toPosition, Size toSize}) {
+  Widget buildPointer(RelationPosition relation) {
+    StartingPoint startingPoint;
+    final isAreaTop = relation.fromPosition.dy + relation.fromSize.height <
+        relation.toPosition.dy;
+    final isAreaRight = relation.fromPosition.dx + (relation.fromSize.width / 2) >
+        relation.toPosition.dy;
+    if (isAreaRight) {
+      if (isAreaTop) {
+        startingPoint = StartingPoint.TopRight;
+      } else {
+        startingPoint = StartingPoint.BottomRight;
+      }
+    } else {
+      if (isAreaTop) {
+        startingPoint = StartingPoint.TopLeft;
+      } else {
+        startingPoint = StartingPoint.BottomLeft;
+      }
+    }
+
+    final _width = (relation.toPosition.dx - relation.fromPosition.dx).abs();
+    final _height = (relation.toPosition.dy -
+            relation.fromPosition.dy -
+            relation.toSize.height)
+        .abs();
+
     return Positioned(
-      top: fromPosition.dy + fromSize.height,
-      left: fromPosition.dx + fromSize.width / 2,
-      height: toPosition.dy - fromPosition.dy,
-      width: toPosition.dx - fromPosition.dx,
-      child: Container(
+      top: (relation.fromPosition.dy + relation.fromSize.height) -
+          (isAreaTop ? 0 : _height),
+      left: (relation.fromPosition.dx + relation.fromSize.width / 2) -
+          (isAreaRight ? _width * 2 : _width),
+      height: _height,
+      width: _width,
+      child: true ? Text(startingPoint.toString()) : Container(
+        color: Colors.red,
         child: CustomPaint(
-          painter: ArrowPainter(),
-        ),
+          painter: ArrowPainter(startingPoint),
+        )
       ),
     );
   }
 
+  List<RelationPosition> _relationPositions = [];
+
+  updatePaths() {
+    const Size _itemSize = Size(350, 130);
+    _relationPositions = onBoardItems
+        .map((item) {
+          return item.parents
+              .map((parent) => RelationPosition(
+                  fromPosition: parent.position,
+                  fromSize: _itemSize,
+                  toSize: _itemSize,
+                  toPosition: item.position))
+              .toList();
+        })
+        .expand((i) => i)
+        .toList();
+    setState(() {});
+  }
+
   Widget buildItem(Item item) {
-    return SizedBox(
-      width: 350,
-      height: 130,
-      child: Card(
-        child: Text(item.title),
+    return GestureDetector(
+      onTap: () {
+        if (selectedItem.value == item) {
+          selectedItem.value = null;
+        } else if (selectedItem.value == null) {
+          selectedItem.value = item;
+        } else {
+          if (!item.parents.contains(selectedItem.value)) {
+            if (!selectedItem.value.parents.contains(item)) {
+              item.parents.add(selectedItem.value);
+              selectedItem.value = null;
+              updatePaths();
+            }
+          } else {
+            item.parents.remove(selectedItem.value);
+            selectedItem.value = null;
+            updatePaths();
+          }
+        }
+      },
+      child: SizedBox(
+        width: 350,
+        height: 130,
+        child: ValueListenableBuilder(
+          valueListenable: selectedItem,
+          builder: (c, _selectedItem, _) => Card(
+            color: _selectedItem == item ? Colors.grey[100] : Colors.white,
+            child: Text(
+                "${item.title}\nparent : ${item.parents.map((x) => x.title).join(", ")}"),
+          ),
+        ),
       ),
     );
   }
 }
 
+enum StartingPoint {
+  TopRight,
+  TopLeft,
+  BottomRight,
+  BottomLeft,
+}
+
 class ArrowPainter extends CustomPainter {
+  final StartingPoint startingPoint;
+
+  ArrowPainter(this.startingPoint);
+
+  Offset calculateStart(Size size) {
+    switch (startingPoint) {
+      case StartingPoint.TopRight:
+        return Offset(size.width, 0);
+      case StartingPoint.TopLeft:
+        return Offset(0, 0);
+      case StartingPoint.BottomRight:
+        return Offset(size.width, size.height);
+      case StartingPoint.BottomLeft:
+        return Offset(0, size.height);
+    }
+    return null;
+  }
+
+  Offset calculateEnd(Size size) {
+    switch (startingPoint) {
+      case StartingPoint.BottomLeft:
+        return Offset(size.width, 0);
+      case StartingPoint.BottomRight:
+        return Offset(0, 0);
+      case StartingPoint.TopLeft:
+        return Offset(size.width, size.height);
+      case StartingPoint.TopRight:
+        return Offset(0, size.height);
+    }
+    return null;
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
+//    final bg = Paint()
+//      ..color = Colors.red
+//      ..style = PaintingStyle.stroke
+//      ..strokeWidth = 1;
+//    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bg);
+
+    final _start = calculateStart(size);
+    final _end = calculateEnd(size);
+    final center = Offset(
+        (_start.dx - _end.dx).abs() / 2, (_start.dy - _end.dy).abs() / 2);
+
     final _paint = Paint()
       ..color = Colors.black
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
-    final center = Offset(size.width / 2, size.height / 2);
-
     final _path = Path();
-    _path.moveTo(size.width, 0);
-    _path.quadraticBezierTo(
-        center.dx + 150, center.dy - 50, center.dx, center.dy);
-    _path.quadraticBezierTo(center.dx - 150, center.dy + 50, 0, size.height);
+    _path.moveTo(_start.dx, _start.dy);
+//    _path.quadraticBezierTo(
+//        center.dx + 150, center.dy - 50, center.dx, center.dy);
+//    _path.quadraticBezierTo(center.dx - 150, center.dy + 50, 0, size.height);
+    _path.lineTo(_end.dx, _end.dy);
     canvas.drawPath(_path, _paint);
 
     final _arrowHeadPath = Path();
-    _arrowHeadPath.moveTo(-5, size.height - 5);
-    _arrowHeadPath.lineTo(0, size.height);
-    _arrowHeadPath.lineTo(5, size.height - 5);
+    _arrowHeadPath.moveTo(-5, _end.dy - 5);
+    _arrowHeadPath.lineTo(0, _end.dy);
+    _arrowHeadPath.lineTo(5, _end.dy - 5);
     canvas.drawPath(_arrowHeadPath, _paint);
   }
 
@@ -223,9 +368,11 @@ class ArrowPainter extends CustomPainter {
 
 class BPItem extends StatefulWidget {
   final Widget child;
-  final Offset position;
+  final Item item;
+  final VoidCallback onPositionChanged;
 
-  const BPItem({Key key, this.position, this.child}) : super(key: key);
+  const BPItem({Key key, this.item, this.child, this.onPositionChanged})
+      : super(key: key);
 
   @override
   _BPItemState createState() => _BPItemState();
@@ -234,7 +381,6 @@ class BPItem extends StatefulWidget {
 class _BPItemState extends State<BPItem> {
   ValueNotifier<bool> isHovering = ValueNotifier(false);
   ValueNotifier<bool> isHoveringOverDragIcon = ValueNotifier(false);
-  Offset _offset = Offset.zero;
 
   @override
   Widget build(BuildContext context) {
@@ -256,8 +402,9 @@ class _BPItemState extends State<BPItem> {
                   behavior: HitTestBehavior.opaque,
                   onPanUpdate: (d) {
                     setState(() {
-                      _offset += d.delta;
+                      widget.item.position += d.delta;
                     });
+                    widget.onPositionChanged();
                   },
                   child: ValueListenableBuilder(
                     valueListenable: isHovering,
@@ -273,8 +420,8 @@ class _BPItemState extends State<BPItem> {
           ],
         ),
       ),
-      left: widget.position.dx + _offset.dx,
-      top: widget.position.dy + _offset.dy,
+      left: widget.item.position.dx,
+      top: widget.item.position.dy,
     );
   }
 }
